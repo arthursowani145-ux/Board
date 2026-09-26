@@ -1,0 +1,66 @@
+package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func usage() {
+	fmt.Fprintf(os.Stderr, `board — signed append-only log for Termux
+
+Usage:
+  board init                    generate identity
+  board id                      show pubkey + fingerprint
+  board publish --title T --type K --link L
+                                append a signed post
+  board export                  print full signed log to stdout
+  board verify <logfile> <pubkey-b64>
+                                verify a signed log
+  board mirror add <url>        add a storage location for your log
+  board mirror list             list mirrors
+  board mirror remove <url>     remove a mirror
+  board pointer [--form F]      print your current pointer (F: json|b64|url)
+  board follow <pubkey> <ptr>   follow someone (ptr: board:v1:..., {...}, or URL)
+  board follows                 list who you follow
+  board fetch [<pubkey>]        fetch and verify logs (all follows, or one)
+  board feed                    read cache, print newest posts first
+
+`)
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(2)
+	}
+	switch os.Args[1] {
+	case "init":
+		cmdInit()
+	case "id":
+		cmdID()
+	case "publish":
+		cmdPublish(os.Args[2:])
+	case "export":
+		cmdExport()
+	case "verify":
+		cmdVerify(os.Args[2:])
+	case "mirror":
+		cmdMirror(os.Args[2:])
+	case "pointer":
+		cmdPointer(os.Args[2:])
+	case "follow":
+		cmdFollow(os.Args[2:])
+	case "follows":
+		cmdFollows()
+	case "fetch":
+		cmdFetch(os.Args[2:])
+	case "feed":
+		cmdFeed(os.Args[2:])
+	case "-h", "--help", "help":
+		usage()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
+		usage()
+		os.Exit(2)
+	}
+}

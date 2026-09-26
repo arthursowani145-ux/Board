@@ -1,0 +1,15 @@
+# Compiled binary
+/board
+
+# Test artifacts
+/tmp/
+*.test
+*.out
+
+# Editor files
+*.swp
+*~
+.DS_Store
+
+# Local board state
+.board/
