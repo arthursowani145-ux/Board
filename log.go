@@ -13,13 +13,15 @@ import (
 )
 
 type Post struct {
-	Seq   int64  `json:"seq"`
-	Prev  string `json:"prev"`
-	Title string `json:"title"`
-	Type  string `json:"type"`
-	Link  string `json:"link"`
-	TS    string `json:"ts"`
-	Sig   string `json:"sig"`
+	Seq     int64  `json:"seq"`
+	Prev    string `json:"prev"`
+	Title   string `json:"title"`
+	Type    string `json:"type"`
+	Link    string `json:"link"`
+	To      string `json:"to,omitempty"`
+	Content string `json:"content,omitempty"`
+	TS      string `json:"ts"`
+	Sig     string `json:"sig"`
 }
 
 func myLogPath() (string, error) {
