@@ -25,7 +25,7 @@ Usage:
   board push <dir>              publish a git project as a signed bundle
   board pull <contact>/<proj>   fetch a project bundle and clone it
   board serve [--port N]        listen for peers (default port 8848)
-  board peers                   find other board instances on this network
+  board peers [--follow]         find other board instances (--follow adds them)
   board follow <pubkey> <ptr>   follow someone (ptr: board:v1:..., {...}, or URL)
   board follows                 list who you follow
   board fetch [<pubkey>]        fetch and verify logs (all follows, or one)

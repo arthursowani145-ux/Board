@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net"
 	"os/exec"
@@ -9,12 +10,7 @@ import (
 	"time"
 )
 
-// localIP returns the local IPv4 address that would be used to reach
-// the outside world. On WiFi this is the WiFi IP. Falls back to parsing
-// termux-wifi-connectioninfo if the socket trick fails.
 func localIP() (string, error) {
-	// Standard trick: open a UDP socket to a public address and read the
-	// local side of the connection. No packets are actually sent.
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err == nil {
 		defer conn.Close()
@@ -22,7 +18,6 @@ func localIP() (string, error) {
 			return addr.IP.String(), nil
 		}
 	}
-	// Fallback: termux-wifi-connectioninfo
 	out, err := exec.Command("termux-wifi-connectioninfo").Output()
 	if err != nil {
 		return "", fmt.Errorf("peers: cannot determine local IP: %v", err)
@@ -39,9 +34,6 @@ func localIP() (string, error) {
 	return info.IP, nil
 }
 
-// subnetHosts returns the list of host IPs to scan, given our own IP.
-// Assumes a /24 (the common case on home WiFi and phone hotspots).
-// Returns up to 254 addresses, excluding our own.
 func subnetHosts(myIP string) []string {
 	ip := net.ParseIP(myIP).To4()
 	if ip == nil {
@@ -59,31 +51,28 @@ func subnetHosts(myIP string) []string {
 	return out
 }
 
-// peerInfo is what we show for each discovered peer.
 type peerInfo struct {
 	IP  string
 	Fp  string
 	Pub string
 	Seq int64
+	Ptr Pointer
 	Err error
 }
 
-// probePeer tries to reach a board serve instance at the given IP on
-// the given port. Returns peerInfo with Err set if the probe failed.
 func probePeer(ip string, port int, timeout time.Duration) peerInfo {
 	pi := peerInfo{IP: ip}
 	url := fmt.Sprintf("http://%s:%d/board/hello", ip, port)
 
-	client := net.Dialer{Timeout: timeout}
-	conn, err := client.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
+	dialer := net.Dialer{Timeout: timeout}
+	conn, err := dialer.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
 		pi.Err = err
 		return pi
 	}
 	conn.Close()
 
-	// Reachable. Now fetch /board/hello.
-	body, err := fetchURLTimeout(url, timeout)
+	body, err := fetchURL(url)
 	if err != nil {
 		pi.Err = err
 		return pi
@@ -95,6 +84,7 @@ func probePeer(ip string, port int, timeout time.Duration) peerInfo {
 	}
 	pi.Pub = p.Pubkey
 	pi.Seq = p.Seq
+	pi.Ptr = p
 	if pub, err := decodePubkey(p.Pubkey); err == nil {
 		pi.Fp = fingerprint(pub)
 	} else {
@@ -103,16 +93,11 @@ func probePeer(ip string, port int, timeout time.Duration) peerInfo {
 	return pi
 }
 
-// fetchURLTimeout is a small wrapper around fetchURL with a per-request
-// timeout. Reuses the same 1 MiB limit as the shared helper.
-func fetchURLTimeout(url string, timeout time.Duration) ([]byte, error) {
-	// Reuse fetchURL but with a shorter timeout would require refactoring
-	// fetchURL itself. For now, fetchURL already has a 20s timeout, and
-	// the dial above already confirmed reachability, so this is fine.
-	return fetchURL(url)
-}
-
 func cmdPeers(args []string) {
+	fs := flag.NewFlagSet("peers", flag.ExitOnError)
+	follow := fs.Bool("follow", false, "auto-add discovered peers to your follow list")
+	fs.Parse(args)
+
 	myIP, err := localIP()
 	if err != nil {
 		fatal(err)
@@ -127,7 +112,7 @@ func cmdPeers(args []string) {
 	timeout := 400 * time.Millisecond
 	results := make(chan peerInfo, len(hosts))
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 64) // cap concurrency
+	sem := make(chan struct{}, 64)
 
 	for _, host := range hosts {
 		wg.Add(1)
@@ -157,12 +142,20 @@ func cmdPeers(args []string) {
 
 	fmt.Printf("found %d peer(s):\n\n", len(found))
 	for _, p := range found {
-		fmt.Printf("  %-15s  %s  seq=%d\n", p.IP, p.Fp, p.Seq)
+		marker := ""
+		if *follow {
+			if _, err := loadFollow(p.Pub); err == nil {
+				marker = "  (already followed)"
+			} else if err := saveFollow(p.Ptr); err != nil {
+				marker = fmt.Sprintf("  (follow failed: %v)", err)
+			} else {
+				marker = "  + followed"
+			}
+		}
+		fmt.Printf("  %-15s  %s  seq=%d%s\n", p.IP, p.Fp, p.Seq, marker)
 	}
 }
 
-// maskOut is a small helper to display "192.168.8.x" style network
-// summaries without importing net/mask logic everywhere.
 func maskOut(ip string) string {
 	parsed := net.ParseIP(ip).To4()
 	if parsed == nil {
