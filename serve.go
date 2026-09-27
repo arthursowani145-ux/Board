@@ -76,9 +76,19 @@ func runServe(port int) error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/board/hello", s.handleHello)
+	// Serve the log directly from ~/.board/posts.log, always current.
+	mux.HandleFunc("/posts.ndjson", func(w http.ResponseWriter, r *http.Request) {
+		lp, err := myLogPath()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		http.ServeFile(w, r, lp)
+	})
 
 	// Serve everything else as static files from the public dir.
-	// This covers /posts.ndjson and any pushed bundles or sent files.
+	// This covers pushed bundles and sent files.
 	fileServer := http.FileServer(http.Dir(pubDir))
 	mux.Handle("/", fileServer)
 
@@ -88,9 +98,17 @@ func runServe(port int) error {
 	fmt.Printf("  pubkey:      %s\n", s.PubB64)
 	fmt.Printf("  serving:     %s\n", s.PublicDir)
 	fmt.Printf("  listening:   %s\n", addr)
-	fmt.Printf("\nDiscovery: http://<your-lan-ip>:%d/board/hello\n", port)
+	if ip, err := localIP(); err == nil {
+		fmt.Printf("\nLocal mirror: http://%s:%d/posts.ndjson\n", ip, port)
+		fmt.Printf("Discovery:    http://%s:%d/board/hello\n", ip, port)
+	} else {
+		fmt.Printf("\nDiscovery:    http://<your-lan-ip>:%d/board/hello\n", port)
+	}
 	fmt.Printf("Ctrl+C to stop.\n\n")
 
+	if err := ensureSelfMirror(port); err != nil {
+		fmt.Printf("warning: could not register self-mirror: %v\n", err)
+	}
 	if err := http.ListenAndServe(addr, logRequests(mux)); err != nil {
 		return err
 	}
@@ -105,4 +123,23 @@ func logRequests(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 		fmt.Printf("%s  %s %s  (%s)\n", time.Now().Format("15:04:05"), r.Method, r.URL.Path, time.Since(start).Round(time.Millisecond))
 	})
+}
+
+func ensureSelfMirror(port int) error {
+	ip, err := localIP()
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("http://%s:%d/posts.ndjson", ip, port)
+	mirrors, err := loadMirrors()
+	if err != nil {
+		return err
+	}
+	for _, m := range mirrors {
+		if m == url {
+			return nil
+		}
+	}
+	mirrors = append(mirrors, url)
+	return saveMirrors(mirrors)
 }
