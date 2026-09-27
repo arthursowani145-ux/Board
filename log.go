@@ -20,6 +20,7 @@ type Post struct {
 	Link    string `json:"link"`
 	To      string `json:"to,omitempty"`
 	Content string `json:"content,omitempty"`
+	Digest  string `json:"digest,omitempty"`
 	TS      string `json:"ts"`
 	Sig     string `json:"sig"`
 }
