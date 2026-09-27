@@ -26,6 +26,8 @@ Usage:
   board pull <contact>/<proj>   fetch a project bundle and clone it
   board serve [--port N]        listen for peers (default port 8848)
   board peers [--follow]         find other board instances (--follow adds them)
+  board send <peer> <path>      send a file or git project to a followed contact
+  board get <peer>/<name>       download a file or project from a contact
   board follow <pubkey> <ptr>   follow someone (ptr: board:v1:..., {...}, or URL)
   board follows                 list who you follow
   board fetch [<pubkey>]        fetch and verify logs (all follows, or one)
@@ -58,6 +60,10 @@ func main() {
 		cmdServe(os.Args[2:])
 	case "peers":
 		cmdPeers(os.Args[2:])
+	case "send":
+		cmdSend(os.Args[2:])
+	case "get":
+		cmdGet(os.Args[2:])
 	case "export":
 		cmdExport()
 	case "verify":

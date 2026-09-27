@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/ed25519"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,14 +56,12 @@ func cmdPush(args []string) {
 		fatal(fmt.Errorf("push: cannot derive project name from %s", absDir))
 	}
 
-	// Create the bundle.
 	bundle, err := createBundle(absDir)
 	if err != nil {
 		fatal(err)
 	}
 	digest := bundleDigest(bundle)
 
-	// Place it in the public dir.
 	pub, err := publicDir()
 	if err != nil {
 		fatal(err)
@@ -75,54 +71,11 @@ func cmdPush(args []string) {
 		fatal(fmt.Errorf("push: write bundle: %w", err))
 	}
 
-	// Load identity and log.
-	priv, err := loadOrCreateIdentity()
-	if err != nil {
-		fatal(err)
-	}
-	posts, err := readMyLog()
-	if err != nil {
-		fatal(err)
-	}
-
-	// Build the project post.
-	p, err := newPost(posts, name, "project", "")
-	if err != nil {
-		fatal(err)
-	}
-	p.Digest = digest
-	// The link field carries the URL of the bundle. For v1 we assume the
-	// user serves ~/board-public/ and the bundle is at /<name>.bundle.
-	// In a later version we could add --url flag to override this.
-	p.Link = "/" + name + ".bundle"
-
-	signed, err := appendPost(priv, p)
-	if err != nil {
-		fatal(err)
-	}
-
-	// Self-verify the whole log.
-	pubKey := priv.Public().(ed25519.PublicKey)
-	all, _ := readMyLog()
-	if err := verifyLog(pubKey, all); err != nil {
-		fatal(fmt.Errorf("post-append self-verify failed: %w", err))
-	}
-
-	// Emit a JSON summary so the user can see what happened and how to
-	// make the bundle reachable.
-	out := map[string]interface{}{
-		"project":    name,
-		"seq":        signed.Seq,
-		"digest":     digest,
+	_, err = publishContentPost(name, "project", "/"+name+".bundle", digest, map[string]interface{}{
 		"bundle":     bundlePath,
-		"link":       signed.Link,
 		"size_bytes": len(bundle),
+	})
+	if err != nil {
+		fatal(err)
 	}
-	enc, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println(string(enc))
-	fmt.Println()
-	fmt.Println("To make the bundle reachable, serve ~/board-public/ over HTTP")
-	fmt.Println("and add the URL as a mirror, e.g.:")
-	fmt.Println("  cd ~/board-public && python3 -m http.server 8765 --bind 0.0.0.0")
-	fmt.Println("  board mirror add http://<your-lan-ip>:8765/")
 }
