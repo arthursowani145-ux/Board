@@ -20,6 +20,8 @@ Usage:
   board mirror list             list mirrors
   board mirror remove <url>     remove a mirror
   board pointer [--form F]      print your current pointer (F: json|b64|url)
+  board msg <contact> <text>     send an encrypted message to a contact
+  board inbox                   read your encrypted messages
   board follow <pubkey> <ptr>   follow someone (ptr: board:v1:..., {...}, or URL)
   board follows                 list who you follow
   board fetch [<pubkey>]        fetch and verify logs (all follows, or one)
@@ -40,6 +42,10 @@ func main() {
 		cmdID()
 	case "publish":
 		cmdPublish(os.Args[2:])
+	case "msg":
+		cmdMsg(os.Args[2:])
+	case "inbox":
+		cmdInbox(os.Args[2:])
 	case "export":
 		cmdExport()
 	case "verify":
