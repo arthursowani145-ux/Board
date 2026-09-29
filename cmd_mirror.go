@@ -17,6 +17,8 @@ func cmdMirror(args []string) {
 			fatal(err)
 		}
 		fmt.Println("mirror added:", args[1])
+	case "add-gist":
+		cmdMirrorAddGist(args[1:])
 	case "list":
 		mirrors, err := loadMirrors()
 		if err != nil {
@@ -37,6 +39,8 @@ func cmdMirror(args []string) {
 			fatal(err)
 		}
 		fmt.Println("mirror removed:", args[1])
+	case "push":
+		cmdMirrorPush(args[1:])
 	default:
 		fatal(fmt.Errorf("unknown mirror subcommand: %s", args[0]))
 	}

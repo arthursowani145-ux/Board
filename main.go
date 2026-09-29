@@ -17,8 +17,10 @@ Usage:
   board verify <logfile> <pubkey-b64>
                                 verify a signed log
   board mirror add <url>        add a storage location for your log
+  board mirror add-gist <id>    configure a GitHub gist as a mirror
   board mirror list             list mirrors
   board mirror remove <url>     remove a mirror
+  board mirror push [<name>]    upload log to configured uploader(s)
   board pointer [--form F]      print your current pointer (F: json|b64|url)
   board msg <contact> <text>     send an encrypted message to a contact
   board inbox                   read your encrypted messages
