@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -88,6 +89,13 @@ func cmdFollow(args []string) {
 	if err := saveFollow(ptr); err != nil {
 		fatal(err)
 	}
+	// If the input was a URL, remember it so fetch can refresh the pointer.
+	if strings.HasPrefix(inputPtr, "http://") || strings.HasPrefix(inputPtr, "https://") {
+		if err := saveFollowSource(ptr.Pubkey, inputPtr); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not save pointer source: %v\n", err)
+		}
+	}
+
 	pub, _ := decodePubkey(ptr.Pubkey)
 	fmt.Printf("following %s (seq %d)\n", fingerprint(pub), ptr.Seq)
 }

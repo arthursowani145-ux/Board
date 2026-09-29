@@ -80,7 +80,7 @@ func checkReaches(posts []Post, ptr Pointer) error {
 }
 
 func fetchOne(pubkey string) error {
-	ptr, err := loadFollow(pubkey)
+	ptr, err := refreshFollowPointer(pubkey)
 	if err != nil {
 		return fmt.Errorf("no follow for %s", pubkey)
 	}
@@ -175,3 +175,34 @@ func cmdFetch(args []string) {
 
 // silence unused import when ed25519 isn't referenced elsewhere in this file
 var _ = ed25519.PublicKey(nil)
+
+// refreshFollowPointer re-fetches the pointer from the follow's source
+// URL if one exists. On any failure, returns the cached pointer.
+// Never fails, never rolls back: it exists to keep fetch working
+// offline and to reject stale or hostile responses.
+func refreshFollowPointer(pubkey string) (Pointer, error) {
+	cached, err := loadFollow(pubkey)
+	if err != nil {
+		return Pointer{}, err
+	}
+	src := loadFollowSource(pubkey)
+	if src == "" {
+		return cached, nil
+	}
+	data, err := fetchURL(src)
+	if err != nil {
+		return cached, nil
+	}
+	fresh, err := parsePointer(strings.TrimSpace(string(data)))
+	if err != nil {
+		return cached, nil
+	}
+	if fresh.Pubkey != pubkey {
+		return cached, nil
+	}
+	if fresh.Seq < cached.Seq {
+		return cached, nil
+	}
+	_ = saveFollow(fresh)
+	return fresh, nil
+}
