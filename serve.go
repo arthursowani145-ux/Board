@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -135,11 +136,17 @@ func ensureSelfMirror(port int) error {
 	if err != nil {
 		return err
 	}
+	suffix := fmt.Sprintf(":%d/posts.ndjson", port)
+
+	// Drop any prior local mirror on this port (stale IP after a
+	// network change). Keep gists and other mirrors untouched.
+	var cleaned []string
 	for _, m := range mirrors {
-		if m == url {
-			return nil
+		if strings.HasPrefix(m, "http://") && strings.HasSuffix(m, suffix) {
+			continue
 		}
+		cleaned = append(cleaned, m)
 	}
-	mirrors = append(mirrors, url)
-	return saveMirrors(mirrors)
+	cleaned = append(cleaned, url)
+	return saveMirrors(cleaned)
 }
